@@ -21,28 +21,24 @@
 #include "FastLED.h"
 #include "TronTunnelC.h"
 
-
 #define NUM_LEDS 300
-
 #define DATA_PIN 3
 #define CLOCK_PIN 4
 
 const char* ssid = "tron-tunnel";
 const char* password = "tq9Zjk23";
-
 CRGB leds[NUM_LEDS];
+WiFiServer server(80);
 
 typedef struct {
   char instruction;
   float argument;
 } Command;
 
-WiFiServer server(80);
-
 void setup() {
   delay(2000);
   Serial.begin(9600);
-
+  WiFi.mode(WIFI_STA);
   WiFi.begin(ssid, password);
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
@@ -83,37 +79,17 @@ Command readCommand() {
     return (Command) {'*', 0.0};
   }
 
-  Serial.println(line.substring(14));
-
   return (Command) {'p', line.substring(14).toFloat()};
 }
 
 void loop() {
   Command c = readCommand();
 
-  // Serial.print(c.instruction);
-  // Serial.print(" ");
-  // Serial.println(c.argument);
-  // Pulse the trigger pin and wait for an echo.
-  // digitalWrite(TRIGGER, HIGH);
-  // delayMicroseconds(10);
-  // digitalWrite(TRIGGER, LOW);
+  if (c.instruction == 'p') {
+    Serial.println(c.argument);
 
-  // long duration = pulseIn(ECHO, HIGH);
-  // float distance = min(200.0, (duration/2) / 29.1);
-
-  // Serial.print(distance);
-  // Serial.println(" cm");
-  for(int i = 0; i < 120; i++) {
-    leds[i] = CRGB(255, 255, 255);
+    FastLED.show();
   }
 
-
-  for(int i = 120; i < NUM_LEDS; i++) {
-    leds[i] = CRGB(0, 0, 0);
-  }
-
-  FastLED.show();
   delay(10);
 }
-
