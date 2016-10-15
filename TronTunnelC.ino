@@ -38,6 +38,15 @@ WiFiServer server(80);
 
 int16_t pos = -1; // position default to "none"
 
+
+int8_t readCommandLoopIterator = 0;
+
+// add a little smoothing...
+const int numDistanceReadings = 20;
+int16_t distances[numDistanceReadings];
+int16_t distanceReadIndex = 0;
+int16_t distanceTotal = 0;
+
 typedef struct {
   char instruction;
   float argument;
@@ -46,6 +55,12 @@ typedef struct {
 void setup() {
   delay(2000);
   Serial.begin(9600);
+
+  for(int thisDistReading = 0; thisDistReading < numDistanceReadings; thisDistReading++)
+  {
+    distances[thisDistReading] = 0;
+     
+  }
 
   WiFi.disconnect();  //added to pervent having to power cycle after upload
   
@@ -103,19 +118,23 @@ Command readCommand() {
   }
   //Serial.println("EndReadCommand - p command");
   return (Command) {'p', line.substring(14).toFloat()};
-
-  
 }
 
+Command c;
 
 
 uint8_t gHue = 0; // rotating "base color" used by many of the patterns
 
 void loop() {
-  
-  Command c;
 
-  c = readCommand();
+  readCommandLoopIterator++;
+  
+
+  if( readCommandLoopIterator > 6 )
+  {
+    c = readCommand();
+    readCommandLoopIterator = 0;
+  }
 
 
   EVERY_N_MILLISECONDS( 20 ) { gHue++; ledEffects.setHue(gHue);} // slowly cycle the "base color" through the rainbow
@@ -123,17 +142,38 @@ void loop() {
 
   if (c.instruction == 'p') {
     Serial.println(c.argument);
+    //Serial.println(millis());
+    
 
-    pos = (uint16_t)(c.argument * NUM_LEDS); 
+    pos = (int16_t)(c.argument * NUM_LEDS ) ; 
 
     c.instruction = '0';
   }
-
-  ledEffects.dotFadeColourWithRainbowSparkle(leds, pos, CRGB::White);
+  
+  ledEffects.dotFadeColourWithRainbowSparkle(leds,  smooth(pos), CRGB::White);
 
   FastLED.show();  
   // insert a delay to keep the framerate modest
   //FastLED.delay(1000/FRAMES_PER_SECOND); 
-  FastLED.delay(20);
+  FastLED.delay(10);
+  //Serial.println(millis());
 
 }
+
+
+
+int16_t smooth(int16_t value)
+{
+  distanceTotal = distanceTotal - distances[distanceReadIndex];
+  distances[distanceReadIndex] = value;
+  distanceTotal = distanceTotal + distances[distanceReadIndex];
+  distanceReadIndex = distanceReadIndex + 1;
+  
+  if (distanceReadIndex >= numDistanceReadings - 1)
+  {
+    distanceReadIndex = 0;
+  }
+  return (distanceTotal / numDistanceReadings);
+}
+
+
