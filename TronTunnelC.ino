@@ -16,6 +16,11 @@
  * DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
+
+ /*Description:
+  * This sketch is for recieving positional data via http and displaying on a string of pixel Leds
+  * 
+  */
 //#define FASTLED_ESP8266_NODEMCU_PIN_ORDER
 #include "ESP8266WiFi.h"
 #include "FastLED.h"
@@ -26,22 +31,25 @@
 #define CLOCK_PIN 4
 #define LED_TYPE    APA102
 #define COLOR_ORDER BGR
-#define NUM_LEDS    170
+#define NUM_LEDS    120
 #define BRIGHTNESS          400
 #define FRAMES_PER_SECOND  120
 
+//Wifi details of AP to connect to
 const char* ssid = "tron-tunnel";
 const char* password = "tq9Zjk23";
-CRGB leds[NUM_LEDS];
-FastLed_Effects ledEffects(NUM_LEDS);
 WiFiServer server(80);
 
-int16_t pos = -1; // position default to "none"
+//construct led array and our efffects class
+CRGB leds[NUM_LEDS];
+FastLed_Effects ledEffects(NUM_LEDS);
 
+// the position as recieved from master
+int16_t pos = -1; // position default to "none"
 
 int8_t readCommandLoopIterator = 0;
 
-// add a little smoothing...
+// add a little smoothing for what has been RXed from AP
 const int numDistanceReadings = 20;
 int16_t distances[numDistanceReadings];
 int16_t distanceReadIndex = 0;
@@ -55,14 +63,15 @@ typedef struct {
 void setup() {
   delay(2000);
   Serial.begin(9600);
-
+  
+  //setup smoothing array
   for(int thisDistReading = 0; thisDistReading < numDistanceReadings; thisDistReading++)
   {
     distances[thisDistReading] = 0;
-     
   }
 
-  WiFi.disconnect();  //added to pervent having to power cycle after upload
+  //added to pervent having to power cycle after upload
+  WiFi.disconnect();  
   
   WiFi.mode(WIFI_STA);
   WiFi.begin(ssid, password);
@@ -73,9 +82,9 @@ void setup() {
 
   Serial.println("");
   Serial.println("WiFi Connected!");
-
   server.begin();
-
+  
+  // setup the leds with the correct colour order and a little colour correction (its better than ot was...)
   FastLED.addLeds<LED_TYPE,DATA_PIN, CLOCK_PIN, COLOR_ORDER>(leds, NUM_LEDS).setCorrection(0x80B0FF);
 
   FastLED.setBrightness(BRIGHTNESS);
@@ -99,17 +108,10 @@ Command readCommand() {
   }
 
   String line = client.readStringUntil('\r');
-
-
+  
   // Tell the client we got the request.
   client.println("HTTP/1.1 200 OK \n Content-Type: text/html \n \n <!doctype html><title>.</title>");
   client.stop();
-  /*
-  client.println("Content-Type: text/html");
-  client.println("");
-  client.println("<!doctype html><title>.</title>");
-  client.stop();
-  */
 
   // Unknown message format, return empty command
   if (line.indexOf("/update?p=") == -1) {
@@ -127,41 +129,37 @@ uint8_t gHue = 0; // rotating "base color" used by many of the patterns
 
 void loop() {
 
+  // only query wifi connection for data after updating the leds a few times
   readCommandLoopIterator++;
-  
-
   if( readCommandLoopIterator > 6 )
   {
     c = readCommand();
     readCommandLoopIterator = 0;
   }
 
-
-  EVERY_N_MILLISECONDS( 20 ) { gHue++; ledEffects.setHue(gHue);} // slowly cycle the "base color" through the rainbow
+  // slowly cycle the "base color" through the rainbow
+  EVERY_N_MILLISECONDS( 20 ) { gHue++; ledEffects.setHue(gHue);} 
   
-
+  //check what my instructons are
   if (c.instruction == 'p') {
     Serial.println(c.argument);
     //Serial.println(millis());
-    
-
     pos = (int16_t)(c.argument * NUM_LEDS ) ; 
-
     c.instruction = '0';
   }
-  
+
+  // get what the leds should be
   ledEffects.dotFadeColourWithRainbowSparkle(leds,  smooth(pos), CRGB::White);
 
-  FastLED.show();  
-  // insert a delay to keep the framerate modest
-  //FastLED.delay(1000/FRAMES_PER_SECOND); 
+  // update the strip
+  FastLED.show();   
   FastLED.delay(10);
   //Serial.println(millis());
 
 }
 
 
-
+// this looks after the smoothing of positional information to allow a nicer transition between positions
 int16_t smooth(int16_t value)
 {
   distanceTotal = distanceTotal - distances[distanceReadIndex];
