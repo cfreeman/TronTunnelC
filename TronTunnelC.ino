@@ -69,24 +69,27 @@ void setup() {
 Command readCommand() {
 
   // No clients, return empty command.
-  Serial.println("StartReadCommand");
+  //Serial.println("StartReadCommand");
   WiFiClient client = server.available();
+  
   if (!client) {
-    Serial.println("EndReadCommand - no client");
+    //Serial.println("EndReadCommand - no client");
     return (Command) {'*', 0.0};
   } 
   
   if (client.available() < 8) {    // No data from the client, return empty command.
-    Serial.println("EndReadCommand - no not enough data");
+    //Serial.println("EndReadCommand - no not enough data");
     return (Command) {'*', 0.0};
     
   }
 
   String line = client.readStringUntil('\r');
 
-/*
+
   // Tell the client we got the request.
-  client.println("HTTP/1.1 200 OK");
+  client.println("HTTP/1.1 200 OK \n Content-Type: text/html \n \n <!doctype html><title>.</title>");
+  client.stop();
+  /*
   client.println("Content-Type: text/html");
   client.println("");
   client.println("<!doctype html><title>.</title>");
@@ -95,10 +98,10 @@ Command readCommand() {
 
   // Unknown message format, return empty command
   if (line.indexOf("/update?p=") == -1) {
-    Serial.println("EndReadCommand - unknown command");
+    //Serial.println("EndReadCommand - unknown command");
     return (Command) {'*', 0.0};
   }
-  Serial.println("EndReadCommand - p command");
+  //Serial.println("EndReadCommand - p command");
   return (Command) {'p', line.substring(14).toFloat()};
 
   
@@ -130,6 +133,7 @@ void loop() {
 
   FastLED.show();  
   // insert a delay to keep the framerate modest
-  FastLED.delay(1000/FRAMES_PER_SECOND); 
+  //FastLED.delay(1000/FRAMES_PER_SECOND); 
+  FastLED.delay(20);
 
 }
