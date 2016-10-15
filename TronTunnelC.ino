@@ -36,7 +36,7 @@ CRGB leds[NUM_LEDS];
 FastLed_Effects ledEffects(NUM_LEDS);
 WiFiServer server(80);
 
-int timer = 0;
+int16_t pos = -1; // position default to "none"
 
 typedef struct {
   char instruction;
@@ -67,6 +67,7 @@ void setup() {
 }
 
 Command readCommand() {
+
   // No clients, return empty command.
   Serial.println("StartReadCommand");
   WiFiClient client = server.available();
@@ -83,12 +84,14 @@ Command readCommand() {
 
   String line = client.readStringUntil('\r');
 
+/*
   // Tell the client we got the request.
   client.println("HTTP/1.1 200 OK");
   client.println("Content-Type: text/html");
   client.println("");
   client.println("<!doctype html><title>.</title>");
   client.stop();
+  */
 
   // Unknown message format, return empty command
   if (line.indexOf("/update?p=") == -1) {
@@ -97,6 +100,8 @@ Command readCommand() {
   }
   Serial.println("EndReadCommand - p command");
   return (Command) {'p', line.substring(14).toFloat()};
+
+  
 }
 
 
@@ -104,15 +109,11 @@ Command readCommand() {
 uint8_t gHue = 0; // rotating "base color" used by many of the patterns
 
 void loop() {
-  int16_t pos = -1;
-  timer++;
+  
   Command c;
 
-  if ( timer > 10 )
-  {
-    c = readCommand();
-    timer = 0;
-  }
+  c = readCommand();
+
 
   EVERY_N_MILLISECONDS( 20 ) { gHue++; ledEffects.setHue(gHue);} // slowly cycle the "base color" through the rainbow
   
@@ -129,6 +130,6 @@ void loop() {
 
   FastLED.show();  
   // insert a delay to keep the framerate modest
-  FastLED.delay(10); 
+  FastLED.delay(1000/FRAMES_PER_SECOND); 
 
 }
