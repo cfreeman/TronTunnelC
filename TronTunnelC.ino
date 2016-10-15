@@ -16,18 +16,24 @@
  * DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
-#define FASTLED_ESP8266_NODEMCU_PIN_ORDER
+//#define FASTLED_ESP8266_NODEMCU_PIN_ORDER
 #include "ESP8266WiFi.h"
 #include "FastLED.h"
+#include "FastLed_Effects.h"
 #include "TronTunnelC.h"
 
-#define NUM_LEDS 300
-#define DATA_PIN 3
+#define DATA_PIN  5
 #define CLOCK_PIN 4
+#define LED_TYPE    APA102
+#define COLOR_ORDER BGR
+#define NUM_LEDS    170
+#define BRIGHTNESS          400
+#define FRAMES_PER_SECOND  120
 
 const char* ssid = "tron-tunnel";
 const char* password = "tq9Zjk23";
 CRGB leds[NUM_LEDS];
+FastLed_Effects ledEffects(NUM_LEDS);
 WiFiServer server(80);
 
 typedef struct {
@@ -38,6 +44,9 @@ typedef struct {
 void setup() {
   delay(2000);
   Serial.begin(9600);
+
+  WiFi.disconnect();  //added to pervent having to power cycle after upload
+  
   WiFi.mode(WIFI_STA);
   WiFi.begin(ssid, password);
   while (WiFi.status() != WL_CONNECTED) {
@@ -50,7 +59,9 @@ void setup() {
 
   server.begin();
 
-  FastLED.addLeds<APA102, DATA_PIN, CLOCK_PIN, RGB, DATA_RATE_MHZ(10)>(leds, NUM_LEDS).setCorrection( TypicalLEDStrip );
+  FastLED.addLeds<LED_TYPE,DATA_PIN, CLOCK_PIN, COLOR_ORDER>(leds, NUM_LEDS).setCorrection(0x80B0FF);
+
+  FastLED.setBrightness(BRIGHTNESS);
 }
 
 Command readCommand() {
@@ -82,14 +93,26 @@ Command readCommand() {
   return (Command) {'p', line.substring(14).toFloat()};
 }
 
+
+uint8_t gHue = 0; // rotating "base color" used by many of the patterns
+
 void loop() {
+  int16_t pos = -1;
   Command c = readCommand();
+
+  EVERY_N_MILLISECONDS( 20 ) { gHue++; ledEffects.setHue(gHue);} // slowly cycle the "base color" through the rainbow
+  
 
   if (c.instruction == 'p') {
     Serial.println(c.argument);
 
-    FastLED.show();
+    pos = (uint16_t)(c.argument * NUM_LEDS); 
   }
 
-  delay(10);
+  ledEffects.dotFadeColourWithRainbowSparkle(leds, pos, CRGB::White);
+
+  FastLED.show();  
+  // insert a delay to keep the framerate modest
+  FastLED.delay(1000/FRAMES_PER_SECOND); 
+
 }
