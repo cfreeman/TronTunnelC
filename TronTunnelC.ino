@@ -36,6 +36,8 @@ CRGB leds[NUM_LEDS];
 FastLed_Effects ledEffects(NUM_LEDS);
 WiFiServer server(80);
 
+int timer = 0;
+
 typedef struct {
   char instruction;
   float argument;
@@ -66,14 +68,17 @@ void setup() {
 
 Command readCommand() {
   // No clients, return empty command.
+  Serial.println("StartReadCommand");
   WiFiClient client = server.available();
   if (!client) {
+    Serial.println("EndReadCommand - no client");
     return (Command) {'*', 0.0};
-  }
-
-  // No data from the client, return empty command.
-  if (client.available() < 8) {
+  } 
+  
+  if (client.available() < 8) {    // No data from the client, return empty command.
+    Serial.println("EndReadCommand - no not enough data");
     return (Command) {'*', 0.0};
+    
   }
 
   String line = client.readStringUntil('\r');
@@ -87,18 +92,27 @@ Command readCommand() {
 
   // Unknown message format, return empty command
   if (line.indexOf("/update?p=") == -1) {
+    Serial.println("EndReadCommand - unknown command");
     return (Command) {'*', 0.0};
   }
-
+  Serial.println("EndReadCommand - p command");
   return (Command) {'p', line.substring(14).toFloat()};
 }
+
 
 
 uint8_t gHue = 0; // rotating "base color" used by many of the patterns
 
 void loop() {
   int16_t pos = -1;
-  Command c = readCommand();
+  timer++;
+  Command c;
+
+  if ( timer > 10 )
+  {
+    c = readCommand();
+    timer = 0;
+  }
 
   EVERY_N_MILLISECONDS( 20 ) { gHue++; ledEffects.setHue(gHue);} // slowly cycle the "base color" through the rainbow
   
@@ -107,12 +121,14 @@ void loop() {
     Serial.println(c.argument);
 
     pos = (uint16_t)(c.argument * NUM_LEDS); 
+
+    c.instruction = '0';
   }
 
   ledEffects.dotFadeColourWithRainbowSparkle(leds, pos, CRGB::White);
 
   FastLED.show();  
   // insert a delay to keep the framerate modest
-  FastLED.delay(1000/FRAMES_PER_SECOND); 
+  FastLED.delay(10); 
 
 }
