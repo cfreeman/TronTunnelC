@@ -19,13 +19,14 @@
 
  /*Description:
   * This sketch is for recieving positional data via http and displaying on a string of pixel Leds
-  * 
+  *
   */
 //#define FASTLED_ESP8266_NODEMCU_PIN_ORDER
 #include "ESP8266WiFi.h"
 #include "FastLED.h"
 #include "FastLed_Effects.h"
 #include "TronTunnelC.h"
+#include "WiFiUDP.h"
 
 #define DATA_PIN  5
 #define CLOCK_PIN 4
@@ -38,11 +39,14 @@
 //Wifi details of AP to connect to
 const char* ssid = "tron-tunnel";
 const char* password = "tq9Zjk23";
-WiFiServer server(80);
 
 //construct led array and our efffects class
 CRGB leds[NUM_LEDS];
 FastLed_Effects ledEffects(NUM_LEDS);
+
+WiFiUDP udp;
+unsigned int udpPort = 4210;
+IPAddress masterIP(192,168,4,1);
 
 // the position as recieved from master
 int16_t pos = -1; // position default to "none"
@@ -63,16 +67,15 @@ typedef struct {
 void setup() {
   delay(2000);
   Serial.begin(9600);
-  
+
   //setup smoothing array
-  for(int thisDistReading = 0; thisDistReading < numDistanceReadings; thisDistReading++)
-  {
+  for (int thisDistReading = 0; thisDistReading < numDistanceReadings; thisDistReading++) {
     distances[thisDistReading] = 0;
   }
 
   //added to pervent having to power cycle after upload
-  WiFi.disconnect();  
-  
+  WiFi.disconnect();
+
   WiFi.mode(WIFI_STA);
   WiFi.begin(ssid, password);
   while (WiFi.status() != WL_CONNECTED) {
@@ -82,69 +85,50 @@ void setup() {
 
   Serial.println("");
   Serial.println("WiFi Connected!");
-  server.begin();
-  
+
+  udp.begin(udpPort);
+
   // setup the leds with the correct colour order and a little colour correction (its better than ot was...)
   FastLED.addLeds<LED_TYPE,DATA_PIN, CLOCK_PIN, COLOR_ORDER>(leds, NUM_LEDS).setCorrection(0x80B0FF);
-
   FastLED.setBrightness(BRIGHTNESS);
 }
 
 Command readCommand() {
+  int packetSize = udp.parsePacket();
+  if (packetSize) {
 
-  // No clients, return empty command.
-  //Serial.println("StartReadCommand");
-  WiFiClient client = server.available();
-  
-  if (!client) {
-    //Serial.println("EndReadCommand - no client");
-    return (Command) {'*', 0.0};
-  } 
-  
-  if (client.available() < 8) {    // No data from the client, return empty command.
-    //Serial.println("EndReadCommand - no not enough data");
-    return (Command) {'*', 0.0};
-    
+    // receive incoming UDP packets
+    char incomingPacket[255];  // buffer for incoming packets
+    int len = udp.read(incomingPacket, 255);
+    if (len > 0) {
+      incomingPacket[len] = 0;
+    }
+
+    return (Command) {'p', String(incomingPacket).toFloat()};
   }
 
-  String line = client.readStringUntil('\r');
-  
-  // Tell the client we got the request.
-  client.println("HTTP/1.1 200 OK \n Content-Type: text/html \n \n <!doctype html><title>.</title>");
-  client.stop();
-
-  // Unknown message format, return empty command
-  if (line.indexOf("/update?p=") == -1) {
-    //Serial.println("EndReadCommand - unknown command");
-    return (Command) {'*', 0.0};
-  }
-  //Serial.println("EndReadCommand - p command");
-  return (Command) {'p', line.substring(14).toFloat()};
+  return (Command) {'*', 0.0};
 }
 
 Command c;
 
-
 uint8_t gHue = 0; // rotating "base color" used by many of the patterns
 
 void loop() {
-
   // only query wifi connection for data after updating the leds a few times
   readCommandLoopIterator++;
-  if( readCommandLoopIterator > 6 )
-  {
+  if (readCommandLoopIterator > 6) {
     c = readCommand();
     readCommandLoopIterator = 0;
   }
 
   // slowly cycle the "base color" through the rainbow
-  EVERY_N_MILLISECONDS( 20 ) { gHue++; ledEffects.setHue(gHue);} 
-  
+  EVERY_N_MILLISECONDS( 20 ) { gHue++; ledEffects.setHue(gHue);}
+
   //check what my instructons are
   if (c.instruction == 'p') {
     Serial.println(c.argument);
-    //Serial.println(millis());
-    pos = (int16_t)(c.argument * NUM_LEDS ) ; 
+    pos = (int16_t)(c.argument * NUM_LEDS ) ;
     c.instruction = '0';
   }
 
@@ -152,26 +136,21 @@ void loop() {
   ledEffects.dotFadeColourWithRainbowSparkle(leds,  smooth(pos), CRGB::White);
 
   // update the strip
-  FastLED.show();   
+  FastLED.show();
   FastLED.delay(10);
-  //Serial.println(millis());
-
 }
 
 
 // this looks after the smoothing of positional information to allow a nicer transition between positions
-int16_t smooth(int16_t value)
-{
+int16_t smooth(int16_t value) {
   distanceTotal = distanceTotal - distances[distanceReadIndex];
   distances[distanceReadIndex] = value;
   distanceTotal = distanceTotal + distances[distanceReadIndex];
   distanceReadIndex = distanceReadIndex + 1;
-  
-  if (distanceReadIndex >= numDistanceReadings - 1)
-  {
+
+  if (distanceReadIndex >= numDistanceReadings - 1) {
     distanceReadIndex = 0;
   }
+
   return (distanceTotal / numDistanceReadings);
 }
-
-
