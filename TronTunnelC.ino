@@ -1,5 +1,5 @@
 /*
- * Copyright (c) Clinton Freeman 2016
+ * Copyright (c) Clinton Freeman & Kurt Schoenhoff 2016
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy of this software and
  * associated documentation files (the "Software"), to deal in the Software without restriction,
@@ -16,27 +16,21 @@
  * DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
-
- /*Description:
-  * This sketch is for recieving positional data via http and displaying on a string of pixel Leds
-  *
-  */
-//#define FASTLED_ESP8266_NODEMCU_PIN_ORDER
 #include "ESP8266WiFi.h"
 #include "FastLED.h"
 #include "FastLed_Effects.h"
 #include "TronTunnelC.h"
 #include "WiFiUDP.h"
 
-#define DATA_PIN  5
-#define CLOCK_PIN 4
-#define LED_TYPE    APA102
-#define COLOR_ORDER BGR
-#define NUM_LEDS    120
+#define DATA_PIN            5
+#define CLOCK_PIN           4
+#define LED_TYPE            APA102
+#define COLOR_ORDER         BGR
+#define NUM_LEDS            120
 #define BRIGHTNESS          400
-#define FRAMES_PER_SECOND  120
+#define FRAMES_PER_SECOND   120
 
-//Wifi details of AP to connect to
+// Credentials of the parent Wifi Access Point (AP).
 const char* ssid = "tron-tunnel";
 const char* password = "tq9Zjk23";
 
@@ -73,7 +67,7 @@ void setup() {
     distances[thisDistReading] = 0;
   }
 
-  //added to pervent having to power cycle after upload
+  //Added to prevent having to power cycle after upload
   WiFi.disconnect();
 
   WiFi.mode(WIFI_STA);
