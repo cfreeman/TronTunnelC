@@ -22,6 +22,10 @@
 #include "TronTunnelC.h"
 #include "WiFiUDP.h"
 
+extern "C" {
+  #include "user_interface.h"
+}
+
 #define DATA_PIN            5
 #define CLOCK_PIN           4
 #define LED_TYPE            APA102
@@ -38,38 +42,36 @@ const char* password = "tq9Zjk23";
 CRGB leds[NUM_LEDS];
 FastLed_Effects ledEffects(NUM_LEDS);
 
+// Underlying hardware.
 WiFiUDP udp;
 unsigned int udpPort = 4210;
 IPAddress masterIP(192,168,4,1);
+os_timer_t renderTimer;
 
 // the position as recieved from master
 int16_t pos = -1; // position default to "none"
 
-int8_t readCommandLoopIterator = 0;
-
 // add a little smoothing for what has been RXed from AP
 const int numDistanceReadings = 20;
-int16_t distances[numDistanceReadings];
+int16_t distances[numDistanceReadings] = {0};
 int16_t distanceReadIndex = 0;
 int16_t distanceTotal = 0;
+uint8_t gHue = 0; // rotating "base color" used by many of the patterns
 
-typedef struct {
-  char instruction;
-  float argument;
-} Command;
+void render(void *arg) {
+  EVERY_N_MILLISECONDS( 20 ) {gHue++;ledEffects.setHue(gHue);}
+  ledEffects.dotFadeColourWithRainbowSparkle(leds, smooth(pos), CRGB::White);
+  FastLED.show();
+}
 
 void setup() {
-  delay(2000);
+  delay(2000);  // Give the sensor / master ESP8266 a couple of seconds head start.
   Serial.begin(9600);
 
-  //setup smoothing array
-  for (int thisDistReading = 0; thisDistReading < numDistanceReadings; thisDistReading++) {
-    distances[thisDistReading] = 0;
-  }
-
-  //Added to prevent having to power cycle after upload
+  // Added to prevent having to power cycle after upload.
   WiFi.disconnect();
 
+  // Connect to the Access Point / sensor / master ESP8266.
   WiFi.mode(WIFI_STA);
   WiFi.begin(ssid, password);
   while (WiFi.status() != WL_CONNECTED) {
@@ -82,56 +84,33 @@ void setup() {
 
   udp.begin(udpPort);
 
-  // setup the leds with the correct colour order and a little colour correction (its better than ot was...)
+  // Setup the leds with the correct colour order and a little colour correction (its better than it was...)
   FastLED.addLeds<LED_TYPE,DATA_PIN, CLOCK_PIN, COLOR_ORDER>(leds, NUM_LEDS).setCorrection(0x80B0FF);
   FastLED.setBrightness(BRIGHTNESS);
+
+  // Rendering has a fixed framerate of 60fps, see the above 'render' function.
+  os_timer_disarm(&renderTimer);
+  os_timer_setfn(&renderTimer, render, &pos);
+  os_timer_arm(&renderTimer, 17, true);
 }
-
-Command readCommand() {
-  int packetSize = udp.parsePacket();
-  if (packetSize) {
-
-    // receive incoming UDP packets
-    char incomingPacket[255];  // buffer for incoming packets
-    int len = udp.read(incomingPacket, 255);
-    if (len > 0) {
-      incomingPacket[len] = 0;
-    }
-
-    return (Command) {'p', String(incomingPacket).toFloat()};
-  }
-
-  return (Command) {'*', 0.0};
-}
-
-Command c;
-
-uint8_t gHue = 0; // rotating "base color" used by many of the patterns
 
 void loop() {
-  // only query wifi connection for data after updating the leds a few times
-  readCommandLoopIterator++;
-  if (readCommandLoopIterator > 6) {
-    c = readCommand();
-    readCommandLoopIterator = 0;
+  int packetSize = udp.parsePacket();
+  if (!packetSize) {
+    return;
   }
 
-  // slowly cycle the "base color" through the rainbow
-  EVERY_N_MILLISECONDS( 20 ) { gHue++; ledEffects.setHue(gHue);}
-
-  //check what my instructons are
-  if (c.instruction == 'p') {
-    Serial.println(c.argument);
-    pos = (int16_t)(c.argument * NUM_LEDS ) ;
-    c.instruction = '0';
+  char incomingPacket[255];
+  int len = udp.read(incomingPacket, 255);
+  if (len > 0) {
+    incomingPacket[len] = 0;
   }
 
-  // get what the leds should be
-  ledEffects.dotFadeColourWithRainbowSparkle(leds,  smooth(pos), CRGB::White);
+  pos = NUM_LEDS - (int16_t)(String(incomingPacket).toFloat() * NUM_LEDS);
 
-  // update the strip
-  FastLED.show();
-  FastLED.delay(10);
+  // Read a new position from the sensor every 70 milliseconds.
+  // NOTE: Rendering occurs at a fixed interval in the timer interupt above.
+  delay(40);
 }
 
 
