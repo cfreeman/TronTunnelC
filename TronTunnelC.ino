@@ -108,11 +108,10 @@ void loop() {
 
   pos = NUM_LEDS - (int16_t)(String(incomingPacket).toFloat() * NUM_LEDS);
 
-  // Read a new position from the sensor every 70 milliseconds.
+  // Read a new position from the sensor every 40 milliseconds.
   // NOTE: Rendering occurs at a fixed interval in the timer interupt above.
   delay(40);
 }
-
 
 // this looks after the smoothing of positional information to allow a nicer transition between positions
 int16_t smooth(int16_t value) {
