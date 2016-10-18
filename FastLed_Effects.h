@@ -14,8 +14,8 @@ class FastLed_Effects
 {
   public:
     FastLed_Effects(int num_Leds);
-    
-    
+
+
     int getNumLeds();
     void setNumLeds(int num_Leds);
     void setHue(uint8_t hue);
@@ -24,10 +24,10 @@ class FastLed_Effects
 
     void addGlitter(CRGB leds[]);
     void addGlitter(CRGB leds[], fract8 chanceOfGlitter);
-    
-    void confetti(CRGB leds[]); 
 
-    void sinelon(CRGB leds[]); 
+    void confetti(CRGB leds[]);
+
+    void sinelon(CRGB leds[]);
 
     void bpm(CRGB leds[]);
     void bpm(CRGB leds[], uint8_t beatsPerMinute);
@@ -35,13 +35,15 @@ class FastLed_Effects
     void juggle(CRGB leds[]);
 
     void dotFade(CRGB leds[]);
-    void dotFade(CRGB leds[], int16_t ledPosition); 
+    void dotFade(CRGB leds[], int16_t ledPosition);
     void dotFadeHue(CRGB leds[], int16_t ledPosition, uint8_t hue );
     void dotFadeColour(CRGB leds[], int16_t ledPosition, CRGB colour );
 
     void dotFadeColourWithSparkle(CRGB leds[], int16_t ledPosition, CRGB colour );
 
     void dotFadeColourWithRainbowSparkle(CRGB leds[], int16_t ledPosition, CRGB colour );
+
+    void noise(CRGB leds[], fract8 chanceOfGlitter);
 
   private:
     int _numLeds;

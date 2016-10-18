@@ -1,21 +1,22 @@
 #ifndef _TRON_TUNNEL_C_ACH_
 #define _TRON_TUNNEL_C_ACH_
 
-typedef struct {
-  int intensity;             // The LED intensity at the key frame value range: [0,255]
-  unsigned long t;           // The time when this intensity is reached.
-} KeyFrame;
+typedef struct State_struct (*StateFn)(struct State_struct currentState,
+									   int newPosition,
+                                       unsigned long currentTime);
 
-typedef struct {
-  int pin;                   // The IO pin that the LED is connected too.
-  boolean on;                // Is the LED on?
+typedef struct State_struct {
+  uint8_t gHue;				  // rotating "base color" used by many of the patterns
+  int position;			      // The current position of an obstacle.
+  int targetPosition;		  // The target position of an obstacle.
+  unsigned long startedAt;	  // The time the current state started.
+  StateFn updateLED;          // The current function to use to when updating the state.
+} State;
 
-  boolean powerUpProcessed;  // Has the powerup been proccessed?
+State idleMode(State currentState, int newPosition, unsigned long currentTime);
 
-  KeyFrame start_low;        // When the LED pulse begins.
-  KeyFrame start_high;       // When the LED pulse reaches its maxima.
-  KeyFrame end_high;         // When the LED pulse departs its maxima.
-  KeyFrame end_low;          // When the LED pulse ends.
-} LED;
+State followMode(State currentState, int newPosition, unsigned long currentTime);
+
+State burstMode(State currentState, int newPosition, unsigned long currentTime);
 
 #endif

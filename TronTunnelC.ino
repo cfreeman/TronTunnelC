@@ -32,7 +32,8 @@ extern "C" {
 #define COLOR_ORDER         BGR
 #define NUM_LEDS            120
 #define BRIGHTNESS          400
-#define FRAMES_PER_SECOND   120
+#define TUNNEL_START        40  // When 'pos' is greater than this number we will enter follow mode.
+#define TUNNEL_END          100 // When 'pos' is greater than this number we will enter burst mode.
 
 // Credentials of the parent Wifi Access Point (AP).
 const char* ssid = "tron-tunnel";
@@ -48,20 +49,87 @@ unsigned int udpPort = 4210;
 IPAddress masterIP(192,168,4,1);
 os_timer_t renderTimer;
 
-// the position as recieved from master
+// The current state of our tron tunnel.
+State state;
+
+// the position as recieved from master sensor
 int16_t pos = -1; // position default to "none"
 
-// add a little smoothing for what has been RXed from AP
-const int numDistanceReadings = 20;
-int16_t distances[numDistanceReadings] = {0};
-int16_t distanceReadIndex = 0;
-int16_t distanceTotal = 0;
-uint8_t gHue = 0; // rotating "base color" used by many of the patterns
+State idleMode(State currentState,
+               int newPosition,
+               unsigned long currentTime) {
+
+  // If we have detected a person - switch to follow mode.
+  if (newPosition > TUNNEL_START) {
+    return {0, TUNNEL_START, newPosition, currentTime, &followMode};
+  }
+
+  // No change - keep animating our noise pattern.
+  ledEffects.noise(leds, 80);
+
+  return currentState;
+}
+
+State followMode(State currentState,
+                 int newPosition,
+                 unsigned long currentTime) {
+
+  // New position from the sensor - update our target.
+  if (newPosition != currentState.targetPosition) {
+    currentState.targetPosition = newPosition;
+    currentState.startedAt = currentTime;
+  }
+
+  // If the person has gone back to the start of the tunnel - switch to idle mode.
+  if (newPosition < TUNNEL_START) {
+    return {0, 0, newPosition, currentTime, &idleMode};
+  }
+
+  // If the person has reached the end of the tunnel - switch to burst mode.
+  if (newPosition > TUNNEL_END) {
+     return {0, currentState.position, newPosition, currentTime, &burstMode};
+  }
+
+  // No state change - keep animating our follow mode.
+  //unsigned long dt = currentTime - currentState.statedAt;
+  int dp = currentState.targetPosition - currentState.position;
+  currentState.position = currentState.position + (int)(0.2 * dp);
+
+  EVERY_N_MILLISECONDS(20) { ledEffects.setHue(currentState.gHue++); }
+  ledEffects.dotFadeColourWithRainbowSparkle(leds, currentState.position, CRGB::White);
+
+  return currentState;
+}
+
+State burstMode(State currentState,
+                int newPosition,
+                unsigned long currentTime) {
+
+  // Full blast when we first burst.
+  if ((currentTime - currentState.startedAt) < 20) {
+    for (int i = 0; i < NUM_LEDS; i++) {
+      int intensity = random8(100, 255);
+      leds[i] = CRGB(intensity, intensity, intensity);
+    }
+  }
+
+  for (int i = 0; i < NUM_LEDS; i++) {
+    fadeToBlackBy(&leds[i], 1, random8(5));
+  }
+
+  unsigned long dt = currentTime - currentState.startedAt;
+  if (dt > 4000) {
+    // Return to idle mode after have cooled down.
+    return {0, 0, 0, currentTime, &idleMode};
+  }
+
+  return currentState;
+}
 
 void render(void *arg) {
-  EVERY_N_MILLISECONDS( 20 ) {gHue++;ledEffects.setHue(gHue);}
-  ledEffects.dotFadeColourWithRainbowSparkle(leds, smooth(pos), CRGB::White);
-  FastLED.show();
+
+  state = state.updateLED(state, pos, millis());
+  FastLED.show(); // Render our LED changes to the hardware.
 }
 
 void setup() {
@@ -88,6 +156,8 @@ void setup() {
   FastLED.addLeds<LED_TYPE,DATA_PIN, CLOCK_PIN, COLOR_ORDER>(leds, NUM_LEDS).setCorrection(0x80B0FF);
   FastLED.setBrightness(BRIGHTNESS);
 
+  state = {0, 0, 0, millis(), &burstMode};
+
   // Rendering has a fixed framerate of 60fps, see the above 'render' function.
   os_timer_disarm(&renderTimer);
   os_timer_setfn(&renderTimer, render, &pos);
@@ -106,23 +176,12 @@ void loop() {
     incomingPacket[len] = 0;
   }
 
+  // disable interupts and dump in update.
+  //os_timer_disarm(&renderTimer);
   pos = NUM_LEDS - (int16_t)(String(incomingPacket).toFloat() * NUM_LEDS);
+  //os_timer_arm(&renderTimer, 17, true);
 
   // Read a new position from the sensor every 40 milliseconds.
   // NOTE: Rendering occurs at a fixed interval in the timer interupt above.
   delay(40);
-}
-
-// this looks after the smoothing of positional information to allow a nicer transition between positions
-int16_t smooth(int16_t value) {
-  distanceTotal = distanceTotal - distances[distanceReadIndex];
-  distances[distanceReadIndex] = value;
-  distanceTotal = distanceTotal + distances[distanceReadIndex];
-  distanceReadIndex = distanceReadIndex + 1;
-
-  if (distanceReadIndex >= numDistanceReadings - 1) {
-    distanceReadIndex = 0;
-  }
-
-  return (distanceTotal / numDistanceReadings);
 }
