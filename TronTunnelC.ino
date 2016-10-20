@@ -80,6 +80,11 @@ State stepMode(State currentState,
     return {0, currentState.position, newPosition, currentTime, &burstMode};
   }
 
+  // Person has gone back to the start of the tunnel, go idle.
+  if (newPosition <= TUNNEL_START) {
+    return {0, 0, 0, currentTime, &idleMode};
+  }
+
   for (int i = 0; i < NUM_LEDS; i++) {
     // Random noise pattern outside the step.
     if (leds[i].r == 0 && random16() < 200) {
@@ -115,7 +120,6 @@ State burstMode(State currentState,
   // Return to idle mode after have cooled down.
   unsigned long dt = currentTime - currentState.startedAt;
   if (dt > 4000) {
-    Serial.println("idle");
     return {0, 0, 0, currentTime, &idleMode};
   }
 
