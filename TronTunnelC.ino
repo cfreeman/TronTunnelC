@@ -31,13 +31,19 @@ extern "C" {
 #define LED_TYPE            APA102
 #define COLOR_ORDER         BGR
 #define NUM_LEDS            120
-#define BRIGHTNESS          400
+#define BRIGHTNESS          100
 #define TUNNEL_START        40  // When 'pos' is greater than this number we will enter follow mode.
-#define TUNNEL_END          100 // When 'pos' is greater than this number we will enter burst mode.
+#define TUNNEL_END          200 // When 'pos' is greater than this number we will enter burst mode.
 
 // Credentials of the parent Wifi Access Point (AP).
 const char* ssid = "tron-tunnel";
 const char* password = "tq9Zjk23";
+
+// add a little smoothing...
+const int numDistanceReadings = 10;
+int16_t distances[numDistanceReadings];
+int16_t distanceReadIndex = 0;
+int16_t distanceTotal = 0;
 
 //construct led array and our efffects class
 CRGB leds[NUM_LEDS];
@@ -46,7 +52,7 @@ FastLed_Effects ledEffects(NUM_LEDS);
 // Underlying hardware.
 WiFiUDP udp;
 unsigned int udpPort = 4210;
-IPAddress masterIP(192,168,4,1);
+IPAddress masterIP(192,168,4,4);
 os_timer_t renderTimer;
 
 // The current state of our tron tunnel.
@@ -178,10 +184,24 @@ void loop() {
 
   // disable interupts and dump in update.
   //os_timer_disarm(&renderTimer);
-  pos = NUM_LEDS - (int16_t)(String(incomingPacket).toFloat() * NUM_LEDS);
+  pos = smoothz(/*NUM_LEDS -*/ (int16_t)(String(incomingPacket).toFloat() * NUM_LEDS));
   //os_timer_arm(&renderTimer, 17, true);
 
   // Read a new position from the sensor every 40 milliseconds.
   // NOTE: Rendering occurs at a fixed interval in the timer interupt above.
   delay(40);
+}
+
+int16_t smoothz(int16_t value)
+{
+  distanceTotal = distanceTotal - distances[distanceReadIndex];
+  distances[distanceReadIndex] = value;
+  distanceTotal = distanceTotal + distances[distanceReadIndex];
+  distanceReadIndex = distanceReadIndex + 1;
+  
+  if (distanceReadIndex >= numDistanceReadings - 1)
+  {
+    distanceReadIndex = 0;
+  }
+  return (distanceTotal / numDistanceReadings);
 }
