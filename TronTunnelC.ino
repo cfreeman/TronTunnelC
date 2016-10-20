@@ -133,7 +133,7 @@ State burstMode(State currentState,
 
 void render(void *arg) {
 
-  state = state.updateLED(state, pos, millis());
+  state = state.updateLED(state, smoothz(pos), millis());
   FastLED.show(); // Render our LED changes to the hardware.
 }
 
@@ -183,7 +183,7 @@ void loop() {
 
   // disable interupts and dump in update.
   //os_timer_disarm(&renderTimer);
-  pos = smoothz(/*NUM_LEDS -*/ (int16_t)(String(incomingPacket).toFloat() * NUM_LEDS));
+  pos = /*NUM_LEDS -*/ (int16_t)(String(incomingPacket).toFloat() * NUM_LEDS);
   //os_timer_arm(&renderTimer, 17, true);
 
   // Read a new position from the sensor every 40 milliseconds.
