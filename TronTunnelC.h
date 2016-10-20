@@ -15,7 +15,7 @@ typedef struct State_struct {
 
 State idleMode(State currentState, int newPosition, unsigned long currentTime);
 
-State followMode(State currentState, int newPosition, unsigned long currentTime);
+State stepMode(State currentState, int newPosition, unsigned long currentTime);
 
 State burstMode(State currentState, int newPosition, unsigned long currentTime);
 

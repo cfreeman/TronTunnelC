@@ -32,7 +32,8 @@ extern "C" {
 #define COLOR_ORDER         BGR
 #define NUM_LEDS            120
 #define BRIGHTNESS          400
-#define TUNNEL_START        40  // When 'pos' is greater than this number we will enter follow mode.
+#define HALF_STEP_WIDTH     15  // The width of a step in number of LEDs.
+#define TUNNEL_START        0   // When 'pos' is greater than this number we will enter step mode.
 #define TUNNEL_END          100 // When 'pos' is greater than this number we will enter burst mode.
 
 // Credentials of the parent Wifi Access Point (AP).
@@ -53,7 +54,7 @@ os_timer_t renderTimer;
 State state;
 
 // the position as recieved from master sensor
-int16_t pos = -1; // position default to "none"
+int pos = -1; // position default to "none"
 
 State idleMode(State currentState,
                int newPosition,
@@ -61,7 +62,7 @@ State idleMode(State currentState,
 
   // If we have detected a person - switch to follow mode.
   if (newPosition > TUNNEL_START) {
-    return {0, TUNNEL_START, newPosition, currentTime, &followMode};
+    return {0, TUNNEL_START, newPosition, currentTime, &stepMode};
   }
 
   // No change - keep animating our noise pattern.
@@ -70,33 +71,29 @@ State idleMode(State currentState,
   return currentState;
 }
 
-State followMode(State currentState,
-                 int newPosition,
-                 unsigned long currentTime) {
+State stepMode(State currentState,
+               int newPosition,
+               unsigned long currentTime) {
 
-  // New position from the sensor - update our target.
-  if (newPosition != currentState.targetPosition) {
-    currentState.targetPosition = newPosition;
-    currentState.startedAt = currentTime;
-  }
-
-  // If the person has gone back to the start of the tunnel - switch to idle mode.
-  if (newPosition < TUNNEL_START) {
-    return {0, 0, newPosition, currentTime, &idleMode};
-  }
-
-  // If the person has reached the end of the tunnel - switch to burst mode.
+  // Person has reached the end of the tunnel - burst instead.
   if (newPosition > TUNNEL_END) {
-     return {0, currentState.position, newPosition, currentTime, &burstMode};
+    return {0, currentState.position, newPosition, currentTime, &burstMode};
   }
 
-  // No state change - keep animating our follow mode.
-  //unsigned long dt = currentTime - currentState.statedAt;
-  int dp = currentState.targetPosition - currentState.position;
-  currentState.position = currentState.position + (int)(0.2 * dp);
+  for (int i = 0; i < NUM_LEDS; i++) {
+    // Random noise pattern outside the step.
+    if (leds[i].r == 0 && random16() < 200) {
+      leds[i] = CRGB(40, 40, 40);
 
-  EVERY_N_MILLISECONDS(20) { ledEffects.setHue(currentState.gHue++); }
-  ledEffects.dotFadeColourWithRainbowSparkle(leds, currentState.position, CRGB::White);
+    // Illuminate LEDs inside the step at a faster and brighter rate.
+    } else if (leds[i].r == 0 && random16() < 1000 && i > (newPosition - HALF_STEP_WIDTH) && i < (newPosition + HALF_STEP_WIDTH)) {
+      leds[i] = CRGB(100, 100, 100);
+
+    // Only fade LEDs outside current step.
+    } else if (leds[i].r != 0 && (i < (newPosition - HALF_STEP_WIDTH) || i > (newPosition + HALF_STEP_WIDTH))) {
+      fadeToBlackBy(&leds[i], 1, random8(5));
+    }
+  }
 
   return currentState;
 }
@@ -115,9 +112,9 @@ State burstMode(State currentState,
 
   ledEffects.noise(leds);
 
+  // Return to idle mode after have cooled down.
   unsigned long dt = currentTime - currentState.startedAt;
   if (dt > 4000) {
-    // Return to idle mode after have cooled down.
     Serial.println("idle");
     return {0, 0, 0, currentTime, &idleMode};
   }
@@ -177,7 +174,7 @@ void loop() {
 
   // disable interupts and dump in update.
   //os_timer_disarm(&renderTimer);
-  pos = NUM_LEDS - (int16_t)(String(incomingPacket).toFloat() * NUM_LEDS);
+  pos = NUM_LEDS - (int)(String(incomingPacket).toFloat() * NUM_LEDS);
   //os_timer_arm(&renderTimer, 17, true);
 
   // Read a new position from the sensor every 40 milliseconds.
