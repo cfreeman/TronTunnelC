@@ -71,7 +71,7 @@ State idleMode(State currentState,
   }
 
   // No change - keep animating our noise pattern.
-  ledEffects.noise(leds, 80);
+  ledEffects.noise(leds);
 
   return currentState;
 }
@@ -119,13 +119,12 @@ State burstMode(State currentState,
     }
   }
 
-  for (int i = 0; i < NUM_LEDS; i++) {
-    fadeToBlackBy(&leds[i], 1, random8(5));
-  }
+  ledEffects.noise(leds);
 
   unsigned long dt = currentTime - currentState.startedAt;
   if (dt > 4000) {
     // Return to idle mode after have cooled down.
+    Serial.println("idle");
     return {0, 0, 0, currentTime, &idleMode};
   }
 

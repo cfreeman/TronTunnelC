@@ -40,13 +40,15 @@ void FastLed_Effects::fillRainbow(CRGB leds[])
   fill_rainbow( leds, _numLeds, _hue, 7);
 }
 
-void FastLed_Effects::noise(CRGB leds[], fract8 chanceOfGlitter)
+void FastLed_Effects::noise(CRGB leds[])
 {
-  if (random8() < chanceOfGlitter) {
-    leds[ random16(_numLeds) ] = CRGB(155, 155, 155);
+  for (int i = 0; i < _numLeds; i++) {
+    if (leds[i].r == 0 && random16() < 200) {
+      leds[i] = CRGB(60, 60, 60);
+    } else {
+      fadeToBlackBy(&leds[i], 1, random8(5));
+    }
   }
-
-  fadeToBlackBy(leds, _numLeds, 20);
 }
 
 void FastLed_Effects::addGlitter(CRGB leds[])
