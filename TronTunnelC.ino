@@ -174,7 +174,7 @@ void loop() {
 
   // disable interupts and dump in update.
   //os_timer_disarm(&renderTimer);
-  pos = NUM_LEDS - (int)(String(incomingPacket).toFloat() * NUM_LEDS);
+  pos = (int)(String(incomingPacket).toFloat() * NUM_LEDS);
   //os_timer_arm(&renderTimer, 17, true);
 
   // Read a new position from the sensor every 40 milliseconds.
