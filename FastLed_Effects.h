@@ -43,7 +43,7 @@ class FastLed_Effects
 
     void dotFadeColourWithRainbowSparkle(CRGB leds[], int16_t ledPosition, CRGB colour );
 
-    void noise(CRGB leds[], fract8 chanceOfGlitter);
+    void noise(CRGB leds[]);
 
   private:
     int _numLeds;
