@@ -47,7 +47,8 @@ FastLed_Effects ledEffects(NUM_LEDS);
 // Underlying hardware.
 WiFiUDP udp;
 unsigned int udpPort = 4210;
-IPAddress masterIP(192,168,4,1);
+IPAddress masterIP(192,168,0,10);
+IPAddress multicast_ip_addr(239, 255, 255, 250);
 os_timer_t renderTimer;
 
 // The current state of our tron tunnel.
@@ -153,7 +154,8 @@ void setup() {
   Serial.println("");
   Serial.println("WiFi Connected!");
 
-  udp.begin(udpPort);
+  udp.beginMulticast(WiFi.localIP(), multicast_ip_addr, udpPort);
+  //udp.begin(udpPort);
 
   // Setup the leds with the correct colour order and a little colour correction (its better than it was...)
   FastLED.addLeds<LED_TYPE,DATA_PIN, CLOCK_PIN, COLOR_ORDER>(leds, NUM_LEDS).setCorrection(0x80B0FF);
@@ -170,6 +172,7 @@ void setup() {
 void loop() {
   int packetSize = udp.parsePacket();
   if (!packetSize) {
+    //Serial.println("no packet");
     return;
   }
 
@@ -178,6 +181,8 @@ void loop() {
   if (len > 0) {
     incomingPacket[len] = 0;
   }
+
+  Serial.println(incomingPacket);
 
   // disable interupts and dump in update.
   //os_timer_disarm(&renderTimer);

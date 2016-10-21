@@ -25,6 +25,8 @@ class FastLed_Effects
 
     void fillRainbow(CRGB leds[]);
 
+    void noise(CRGB leds[]);
+
     void addGlitter(CRGB leds[]);
     void addGlitter(CRGB leds[], fract8 chanceOfGlitter);
     
