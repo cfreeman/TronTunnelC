@@ -32,9 +32,9 @@ extern "C" {
 #define COLOR_ORDER         BGR
 #define NUM_LEDS            120
 #define BRIGHTNESS          400
-#define HALF_STEP_WIDTH     15  // The width of a step in number of LEDs.
+#define HALF_STEP_WIDTH     12  // The width of a step in number of LEDs.
 #define TUNNEL_START        0   // When 'pos' is greater than this number we will enter step mode.
-#define TUNNEL_END          100 // When 'pos' is greater than this number we will enter burst mode.
+#define TUNNEL_END          95  // When 'pos' is greater than this number we will enter burst mode.
 
 // Credentials of the parent Wifi Access Point (AP).
 const char* ssid = "tron-tunnel";
@@ -91,7 +91,7 @@ State stepMode(State currentState,
       leds[i] = CRGB(40, 40, 40);
 
     // Illuminate LEDs inside the step at a faster and brighter rate.
-    } else if (leds[i].r == 0 && random16() < 1000 && i > (newPosition - HALF_STEP_WIDTH) && i < (newPosition + HALF_STEP_WIDTH)) {
+    } else if (leds[i].r == 0 && random16() < 4000 && i > (newPosition - HALF_STEP_WIDTH) && i < (newPosition + HALF_STEP_WIDTH)) {
       leds[i] = CRGB(100, 100, 100);
 
     // Only fade LEDs outside current step.
@@ -127,6 +127,9 @@ State burstMode(State currentState,
 }
 
 void render(void *arg) {
+
+  // Serial.print("pos:");
+  // Serial.println(pos);
 
   state = state.updateLED(state, pos, millis());
   FastLED.show(); // Render our LED changes to the hardware.
